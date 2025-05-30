@@ -1,0 +1,162 @@
+# M30 Language Showcase
+# This file demonstrates the key features of M30
+
+# 1. Basic Syntax and Type Inference
+let greet name = f"Hello, {name}!"
+
+# With type annotation at module boundary
+export def greet_formal(title: string, name: string) -> string =
+    f"Greetings, {title} {name}"
+
+# 2. Pattern Matching and Algebraic Data Types
+type Tree[T] =
+    | Leaf(T)
+    | Node(Tree[T], Tree[T])
+
+let sum_tree tree =
+    match tree with
+    | Leaf(n) -> n
+    | Node(left, right) -> sum_tree(left) + sum_tree(right)
+
+# 3. Multiple Dispatch
+def area(shape: Circle) -> float =
+    pi * shape.radius ** 2
+
+def area(shape: Rectangle) -> float =
+    shape.width * shape.height
+
+def area(shape: Triangle) -> float =
+    0.5 * shape.base * shape.height
+  where:
+    # Where clause for clarity
+    pi = 3.14159265359
+
+# 4. Classes with Immutability by Default
+class BankAccount:
+    balance: float              # Immutable
+    mut transactions: List[Transaction]  # Mutable
+    
+    def deposit(self, amount: float) -> Result[None, Error] =
+        if amount <= 0:
+            return Err("Amount must be positive")
+        self.transactions.append(Deposit(amount, now()))
+        Ok(None)
+    
+    def with_balance(self, new_balance: float) -> BankAccount =
+        # Return new instance with updated balance
+        BankAccount {
+            balance: new_balance,
+            transactions: self.transactions.copy()
+        }
+
+# 5. Structured Concurrency
+def fetch_user_profile(user_id: int) -> Result[UserProfile, Error] =
+    parallel:
+        let info = spawn: fetch_user_info(user_id)
+        let posts = spawn: fetch_user_posts(user_id)
+        let friends = spawn: fetch_user_friends(user_id)
+    # All tasks complete before continuing
+    
+    Ok(UserProfile {
+        info: info?,
+        posts: posts?,
+        friends: friends?
+    })
+
+# 6. Restartable Error Handling
+def process_config(path: string) -> Result[Config, Error] =
+    restart_case:
+        let content = File.read(path)?
+        parse_config(content)
+    handle ConfigError as e:
+        | use_default -> 
+            log.warn(f"Using default config: {e}")
+            Config.default()
+        | create_new ->
+            let default = Config.default()
+            File.write(path, default.to_json())?
+            default
+        | repair_and_retry ->
+            repair_config_file(path)?
+            process_config(path)  # Retry
+
+# 7. List Comprehensions and Functional Features
+let numbers = [1, 2, 3, 4, 5]
+
+let evens = [x for x in numbers if x % 2 == 0]
+let squares = [x * x for x in numbers]
+let pairs = [(x, y) for x in 1..3 for y in 1..3 if x < y]
+
+# Pipeline operator for readability
+let result = numbers
+    |> filter(x -> x % 2 == 0)
+    |> map(x -> x * x)
+    |> sum()
+
+# 8. Compile-Time Computation
+const fibonacci_lookup = comptime:
+    # Generate at compile time
+    cache = [0, 1]
+    for i in 2..100:
+        cache.append(cache[i-1] + cache[i-2])
+    cache
+
+def fast_fib(n: int) -> int =
+    fibonacci_lookup[n]  # O(1) lookup
+
+# 9. Interactive Development Features
+@reloadable
+def analyze_data(data: DataFrame) -> Analysis =
+    let cleaned = clean_data(data)
+    let features = extract_features(cleaned)
+    
+    # Add breakpoint for interactive debugging
+    if debug_mode:
+        breakpoint()  # Drops into REPL with full context
+    
+    build_analysis(features)
+
+# 10. Module System with Type Boundaries
+module statistics:
+    # Exports require type annotations
+    export def mean[T: Numeric](values: List[T]) -> float
+    export def variance[T: Numeric](values: List[T]) -> float
+    
+    # Internal functions use full inference
+    let sum_values values = 
+        values.reduce(0, (+))
+    
+    let mean values =
+        sum_values(values) / len(values)
+    
+    let variance values =
+        let m = mean(values)
+        let squared_diffs = [(x - m) ** 2 for x in values]
+        mean(squared_diffs)
+
+# 11. Smart Error Handling with Result Types
+def safe_divide(a: float, b: float) -> Result[float, string] =
+    if b == 0:
+        Err("Division by zero")
+    else:
+        Ok(a / b)
+
+# Chain operations with ? operator
+def calculate(x: float, y: float, z: float) -> Result[float, string] =
+    let a = safe_divide(x, y)?
+    let b = safe_divide(a, z)?
+    Ok(b * 2)
+
+# 12. REPL-Driven Development Example
+# In REPL:
+# > let data = load_dataset("sales.csv")
+# > describe(data)
+# DataFrame: 10000 rows × 5 columns
+# Columns: date, product, quantity, price, region
+# 
+# > let daily_sales = data.groupby("date").sum("quantity")
+# > plot(daily_sales)
+# [Shows interactive plot]
+# 
+# > save_image("sales_analysis.m30img")
+# Session saved. Resume with: m30 --load sales_analysis.m30img
